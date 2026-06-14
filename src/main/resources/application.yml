@@ -1,0 +1,57 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: vendingcom-auth-service
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: 123software
+
+  sql:
+    init:
+      mode: never
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: adolfo.berrocal@vallegrande.edu.pe
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+management:
+  health:
+    r2dbc:
+      enabled: true
+    mail:
+      enabled: false
+
+logging:
+  level:
+    org.springframework.r2dbc: DEBUG
+    com.vendingcom.auth_service: DEBUG
+
+jwt:
+  secret: "VENDINGCOM_AUTH_SERVICE_SECRET_KEY_2026_DEVELOPMENT_ONLY_CHANGE_ME_123456789"
+  expiration-minutes: 60
+
+auth:
+  password-recovery:
+    code-expiration-minutes: 10
+    max-attempts: 3
+    request-cooldown-minutes: 2
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
