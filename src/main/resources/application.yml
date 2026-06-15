@@ -1,57 +1,57 @@
 server:
-  port: ${PORT:8081}
+  port: ${PORT}
 
 spring:
   application:
-    name: vendingcom-auth-service
+    name: ${SPRING_APPLICATION_NAME}
 
   r2dbc:
-    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/postgres}
-    username: ${SPRING_R2DBC_USERNAME:postgres}
-    password: ${SPRING_R2DBC_PASSWORD:123software}
+    url: ${SPRING_R2DBC_URL}
+    username: ${SPRING_R2DBC_USERNAME}
+    password: ${SPRING_R2DBC_PASSWORD}
 
   sql:
     init:
-      mode: never
+      mode: ${SPRING_SQL_INIT_MODE}
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:adolfo.berrocal@vallegrande.edu.pe}
-    password: ${MAIL_PASSWORD:gvpa jfui hrjj yqlh}
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH}
           starttls:
-            enable: true
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE}
 
 management:
   health:
     r2dbc:
-      enabled: true
+      enabled: ${MANAGEMENT_HEALTH_R2DBC_ENABLED}
     mail:
-      enabled: false
+      enabled: ${MANAGEMENT_HEALTH_MAIL_ENABLED}
 
 logging:
   level:
-    org.springframework.r2dbc: DEBUG
-    com.vendingcom.auth_service: DEBUG
+    org.springframework.r2dbc: ${LOGGING_LEVEL_R2DBC}
+    com.vendingcom.auth_service: ${LOGGING_LEVEL_APP}
 
 jwt:
-  secret: ${JWT_SECRET:VENDINGCOM_AUTH_SERVICE_SECRET_KEY_2026_DEVELOPMENT_ONLY_CHANGE_ME_123456789}
-  expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  secret: ${JWT_SECRET}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES}
 
 auth:
   password-recovery:
-    code-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES:10}
-    max-attempts: ${PASSWORD_RECOVERY_MAX_ATTEMPTS:3}
-    request-cooldown-minutes: ${PASSWORD_RECOVERY_COOLDOWN_MINUTES:2}
+    code-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES}
+    max-attempts: ${PASSWORD_RECOVERY_MAX_ATTEMPTS}
+    request-cooldown-minutes: ${PASSWORD_RECOVERY_COOLDOWN_MINUTES}
 
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    path: ${SPRINGDOC_API_DOCS_PATH}
   swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
+    path: ${SPRINGDOC_SWAGGER_UI_PATH}
+    operations-sorter: ${SPRINGDOC_SWAGGER_UI_OPERATIONS_SORTER}
+    tags-sorter: ${SPRINGDOC_SWAGGER_UI_TAGS_SORTER}
