@@ -1,10 +1,4 @@
--- ============================================================
--- VENDING.COM S.A.C
--- Base de datos Render: vendingcom
--- Módulo: AUTH - Script completo para Render
--- IMPORTANTE: No usar CREATE DATABASE en Render.
--- ============================================================
-
+BEGIN;
 
 -- ============================================================
 -- 1. TABLAS
@@ -25,20 +19,11 @@ CREATE TABLE IF NOT EXISTS auth_users (
     updated_by_user_id INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
-
     CONSTRAINT uq_auth_users_username UNIQUE (username),
     CONSTRAINT uq_auth_users_email UNIQUE (email),
-
-    CONSTRAINT chk_auth_users_user_status
-        CHECK (user_status IN (0, 1, 2)),
-
-    CONSTRAINT fk_auth_users_created_by
-        FOREIGN KEY (created_by_user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT fk_auth_users_updated_by
-        FOREIGN KEY (updated_by_user_id)
-        REFERENCES auth_users(user_id)
+    CONSTRAINT chk_auth_users_user_status CHECK (user_status IN (0, 1, 2)),
+    CONSTRAINT fk_auth_users_created_by FOREIGN KEY (created_by_user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT fk_auth_users_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES auth_users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS auth_roles (
@@ -51,19 +36,10 @@ CREATE TABLE IF NOT EXISTS auth_roles (
     updated_by_user_id INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
-
     CONSTRAINT uq_auth_roles_role_code UNIQUE (role_code),
-
-    CONSTRAINT chk_auth_roles_role_status
-        CHECK (role_status IN (0, 1)),
-
-    CONSTRAINT fk_auth_roles_created_by
-        FOREIGN KEY (created_by_user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT fk_auth_roles_updated_by
-        FOREIGN KEY (updated_by_user_id)
-        REFERENCES auth_users(user_id)
+    CONSTRAINT chk_auth_roles_role_status CHECK (role_status IN (0, 1)),
+    CONSTRAINT fk_auth_roles_created_by FOREIGN KEY (created_by_user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT fk_auth_roles_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES auth_users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS auth_user_roles (
@@ -73,24 +49,11 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
     assigned_by_user_id INTEGER,
     assignment_status SMALLINT NOT NULL DEFAULT 1,
     assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_auth_user_roles_user
-        FOREIGN KEY (user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT fk_auth_user_roles_role
-        FOREIGN KEY (role_id)
-        REFERENCES auth_roles(role_id),
-
-    CONSTRAINT fk_auth_user_roles_assigned_by
-        FOREIGN KEY (assigned_by_user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT uq_auth_user_roles_user_role
-        UNIQUE (user_id, role_id),
-
-    CONSTRAINT chk_auth_user_roles_assignment_status
-        CHECK (assignment_status IN (0, 1))
+    CONSTRAINT fk_auth_user_roles_user FOREIGN KEY (user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT fk_auth_user_roles_role FOREIGN KEY (role_id) REFERENCES auth_roles(role_id),
+    CONSTRAINT fk_auth_user_roles_assigned_by FOREIGN KEY (assigned_by_user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT uq_auth_user_roles_user_role UNIQUE (user_id, role_id),
+    CONSTRAINT chk_auth_user_roles_assignment_status CHECK (assignment_status IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS auth_parameters (
@@ -105,20 +68,10 @@ CREATE TABLE IF NOT EXISTS auth_parameters (
     updated_by_user_id INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
-
-    CONSTRAINT uq_auth_parameters_group_code
-        UNIQUE (parameter_group, parameter_code),
-
-    CONSTRAINT chk_auth_parameters_parameter_status
-        CHECK (parameter_status IN (0, 1)),
-
-    CONSTRAINT fk_auth_parameters_created_by
-        FOREIGN KEY (created_by_user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT fk_auth_parameters_updated_by
-        FOREIGN KEY (updated_by_user_id)
-        REFERENCES auth_users(user_id)
+    CONSTRAINT uq_auth_parameters_group_code UNIQUE (parameter_group, parameter_code),
+    CONSTRAINT chk_auth_parameters_parameter_status CHECK (parameter_status IN (0, 1)),
+    CONSTRAINT fk_auth_parameters_created_by FOREIGN KEY (created_by_user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT fk_auth_parameters_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES auth_users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS auth_audit_logs (
@@ -134,14 +87,8 @@ CREATE TABLE IF NOT EXISTS auth_audit_logs (
     user_agent VARCHAR(255),
     executed_by_user_id INTEGER,
     executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_auth_audit_logs_affected_user
-        FOREIGN KEY (affected_user_id)
-        REFERENCES auth_users(user_id),
-
-    CONSTRAINT fk_auth_audit_logs_executed_by
-        FOREIGN KEY (executed_by_user_id)
-        REFERENCES auth_users(user_id)
+    CONSTRAINT fk_auth_audit_logs_affected_user FOREIGN KEY (affected_user_id) REFERENCES auth_users(user_id),
+    CONSTRAINT fk_auth_audit_logs_executed_by FOREIGN KEY (executed_by_user_id) REFERENCES auth_users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS auth_password_recovery_codes (
@@ -155,189 +102,36 @@ CREATE TABLE IF NOT EXISTS auth_password_recovery_codes (
     used_at TIMESTAMP,
     attempts INTEGER NOT NULL DEFAULT 0,
     max_attempts INTEGER NOT NULL DEFAULT 3,
-
-    CONSTRAINT fk_auth_password_recovery_user
-        FOREIGN KEY (user_id)
-        REFERENCES auth_users(user_id)
+    CONSTRAINT fk_auth_password_recovery_user FOREIGN KEY (user_id) REFERENCES auth_users(user_id)
 );
 
-
 -- ============================================================
--- 2. COMENTARIOS
--- ============================================================
-
-COMMENT ON TABLE auth_users IS 'Tabla principal de usuarios del sistema VENDING.COM S.A.C.';
-COMMENT ON COLUMN auth_users.user_id IS 'Identificador único del usuario.';
-COMMENT ON COLUMN auth_users.username IS 'Nombre de usuario utilizado para iniciar sesión. Debe ser único.';
-COMMENT ON COLUMN auth_users.email IS 'Correo electrónico del usuario. Debe ser único.';
-COMMENT ON COLUMN auth_users.password_hash IS 'Contraseña almacenada como hash seguro.';
-COMMENT ON COLUMN auth_users.full_name IS 'Nombre completo del usuario.';
-COMMENT ON COLUMN auth_users.phone_number IS 'Número telefónico del usuario.';
-COMMENT ON COLUMN auth_users.document_type IS 'Tipo de documento del usuario.';
-COMMENT ON COLUMN auth_users.document_number IS 'Número de documento del usuario.';
-COMMENT ON COLUMN auth_users.user_status IS 'Estado del usuario: 0 inactivo, 1 activo, 2 bloqueado.';
-COMMENT ON COLUMN auth_users.last_login_at IS 'Fecha y hora del último inicio de sesión exitoso.';
-COMMENT ON COLUMN auth_users.created_by_user_id IS 'Usuario que creó este registro.';
-COMMENT ON COLUMN auth_users.updated_by_user_id IS 'Usuario que modificó este registro.';
-COMMENT ON COLUMN auth_users.created_at IS 'Fecha y hora de creación.';
-COMMENT ON COLUMN auth_users.updated_at IS 'Fecha y hora de última modificación.';
-
-COMMENT ON TABLE auth_roles IS 'Tabla que almacena los roles del sistema.';
-COMMENT ON COLUMN auth_roles.role_id IS 'Identificador único del rol.';
-COMMENT ON COLUMN auth_roles.role_code IS 'Código técnico del rol. Ejemplo: ADMIN, SUPERVISOR, OPERATOR.';
-COMMENT ON COLUMN auth_roles.role_name IS 'Nombre visible del rol.';
-COMMENT ON COLUMN auth_roles.role_description IS 'Descripción funcional del rol.';
-COMMENT ON COLUMN auth_roles.role_status IS 'Estado del rol: 0 inactivo, 1 activo.';
-COMMENT ON COLUMN auth_roles.created_by_user_id IS 'Usuario que creó el rol.';
-COMMENT ON COLUMN auth_roles.updated_by_user_id IS 'Usuario que modificó el rol.';
-COMMENT ON COLUMN auth_roles.created_at IS 'Fecha y hora de creación del rol.';
-COMMENT ON COLUMN auth_roles.updated_at IS 'Fecha y hora de última modificación del rol.';
-
-COMMENT ON TABLE auth_user_roles IS 'Tabla intermedia que relaciona usuarios con roles.';
-COMMENT ON COLUMN auth_user_roles.user_role_id IS 'Identificador único de la relación usuario-rol.';
-COMMENT ON COLUMN auth_user_roles.user_id IS 'Usuario al que se le asigna el rol.';
-COMMENT ON COLUMN auth_user_roles.role_id IS 'Rol asignado al usuario.';
-COMMENT ON COLUMN auth_user_roles.assigned_by_user_id IS 'Usuario que asignó el rol.';
-COMMENT ON COLUMN auth_user_roles.assignment_status IS 'Estado de asignación: 0 inactivo, 1 activo.';
-COMMENT ON COLUMN auth_user_roles.assigned_at IS 'Fecha y hora de asignación del rol.';
-
-COMMENT ON TABLE auth_parameters IS 'Tabla genérica de parámetros del módulo AUTH.';
-COMMENT ON COLUMN auth_parameters.parameter_id IS 'Identificador único del parámetro.';
-COMMENT ON COLUMN auth_parameters.parameter_group IS 'Grupo del parámetro.';
-COMMENT ON COLUMN auth_parameters.parameter_code IS 'Código técnico del parámetro.';
-COMMENT ON COLUMN auth_parameters.parameter_value IS 'Valor del parámetro.';
-COMMENT ON COLUMN auth_parameters.parameter_description IS 'Descripción del parámetro.';
-COMMENT ON COLUMN auth_parameters.sort_order IS 'Orden de visualización.';
-COMMENT ON COLUMN auth_parameters.parameter_status IS 'Estado del parámetro: 0 inactivo, 1 activo.';
-COMMENT ON COLUMN auth_parameters.created_by_user_id IS 'Usuario que creó el parámetro.';
-COMMENT ON COLUMN auth_parameters.updated_by_user_id IS 'Usuario que modificó el parámetro.';
-COMMENT ON COLUMN auth_parameters.created_at IS 'Fecha y hora de creación.';
-COMMENT ON COLUMN auth_parameters.updated_at IS 'Fecha y hora de última modificación.';
-
-COMMENT ON TABLE auth_audit_logs IS 'Tabla de auditoría del módulo AUTH.';
-COMMENT ON COLUMN auth_audit_logs.audit_log_id IS 'Identificador único del evento de auditoría.';
-COMMENT ON COLUMN auth_audit_logs.affected_user_id IS 'Usuario afectado por la acción.';
-COMMENT ON COLUMN auth_audit_logs.action_type IS 'Tipo de acción registrada.';
-COMMENT ON COLUMN auth_audit_logs.affected_table_name IS 'Tabla afectada por la acción.';
-COMMENT ON COLUMN auth_audit_logs.affected_record_id IS 'Registro afectado por la acción.';
-COMMENT ON COLUMN auth_audit_logs.action_description IS 'Descripción del evento auditado.';
-COMMENT ON COLUMN auth_audit_logs.old_data IS 'Datos anteriores al cambio en formato JSONB.';
-COMMENT ON COLUMN auth_audit_logs.new_data IS 'Datos nuevos después del cambio en formato JSONB.';
-COMMENT ON COLUMN auth_audit_logs.ip_address IS 'Dirección IP desde donde se ejecutó la acción.';
-COMMENT ON COLUMN auth_audit_logs.user_agent IS 'Cliente, navegador o dispositivo desde donde se ejecutó la acción.';
-COMMENT ON COLUMN auth_audit_logs.executed_by_user_id IS 'Usuario que ejecutó la acción.';
-COMMENT ON COLUMN auth_audit_logs.executed_at IS 'Fecha y hora del evento auditado.';
-
-COMMENT ON TABLE auth_password_recovery_codes IS 'Tabla que almacena códigos temporales de recuperación de contraseña.';
-COMMENT ON COLUMN auth_password_recovery_codes.recovery_code_id IS 'Identificador único del código de recuperación.';
-COMMENT ON COLUMN auth_password_recovery_codes.user_id IS 'Usuario dueño del código de recuperación.';
-COMMENT ON COLUMN auth_password_recovery_codes.email IS 'Correo electrónico al cual se envía el código.';
-COMMENT ON COLUMN auth_password_recovery_codes.code_hash IS 'Código de recuperación almacenado como hash.';
-COMMENT ON COLUMN auth_password_recovery_codes.used IS 'Indica si el código ya fue usado.';
-COMMENT ON COLUMN auth_password_recovery_codes.expires_at IS 'Fecha y hora de expiración del código.';
-COMMENT ON COLUMN auth_password_recovery_codes.created_at IS 'Fecha y hora en que se generó el código.';
-COMMENT ON COLUMN auth_password_recovery_codes.used_at IS 'Fecha y hora en que se usó el código.';
-COMMENT ON COLUMN auth_password_recovery_codes.attempts IS 'Cantidad de intentos fallidos realizados.';
-COMMENT ON COLUMN auth_password_recovery_codes.max_attempts IS 'Cantidad máxima de intentos permitidos.';
-
-
--- ============================================================
--- 3. ÍNDICES
+-- 2. ÍNDICES
 -- ============================================================
 
-CREATE INDEX IF NOT EXISTS idx_auth_users_username_lower
-    ON auth_users (LOWER(username));
-
-CREATE INDEX IF NOT EXISTS idx_auth_users_email_lower
-    ON auth_users (LOWER(email));
-
-CREATE INDEX IF NOT EXISTS idx_auth_users_document
-    ON auth_users (document_type, document_number);
-
-CREATE INDEX IF NOT EXISTS idx_auth_users_status
-    ON auth_users (user_status);
-
-CREATE INDEX IF NOT EXISTS idx_auth_users_created_by
-    ON auth_users (created_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_users_updated_by
-    ON auth_users (updated_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_roles_code_lower
-    ON auth_roles (LOWER(role_code));
-
-CREATE INDEX IF NOT EXISTS idx_auth_roles_status
-    ON auth_roles (role_status);
-
-CREATE INDEX IF NOT EXISTS idx_auth_roles_created_by
-    ON auth_roles (created_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_roles_updated_by
-    ON auth_roles (updated_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_user_roles_user_id
-    ON auth_user_roles (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_user_roles_role_id
-    ON auth_user_roles (role_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_user_roles_assignment_status
-    ON auth_user_roles (assignment_status);
-
-CREATE INDEX IF NOT EXISTS idx_auth_user_roles_assigned_by
-    ON auth_user_roles (assigned_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_user_roles_user_status
-    ON auth_user_roles (user_id, assignment_status);
-
-CREATE INDEX IF NOT EXISTS idx_auth_parameters_group
-    ON auth_parameters (parameter_group);
-
-CREATE INDEX IF NOT EXISTS idx_auth_parameters_group_status_order
-    ON auth_parameters (parameter_group, parameter_status, sort_order);
-
-CREATE INDEX IF NOT EXISTS idx_auth_parameters_group_code
-    ON auth_parameters (parameter_group, parameter_code);
-
-CREATE INDEX IF NOT EXISTS idx_auth_parameters_created_by
-    ON auth_parameters (created_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_parameters_updated_by
-    ON auth_parameters (updated_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_affected_user
-    ON auth_audit_logs (affected_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_executed_by
-    ON auth_audit_logs (executed_by_user_id);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_action_type
-    ON auth_audit_logs (action_type);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_executed_at
-    ON auth_audit_logs (executed_at);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_action_date
-    ON auth_audit_logs (action_type, executed_at);
-
-CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_table_record
-    ON auth_audit_logs (affected_table_name, affected_record_id);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_codes_email
-    ON auth_password_recovery_codes(email);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_codes_user_id
-    ON auth_password_recovery_codes(user_id);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_codes_active
-    ON auth_password_recovery_codes(email, used, expires_at, attempts, max_attempts);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_codes_expiration_used
-    ON auth_password_recovery_codes(expires_at, used);
-
+CREATE INDEX IF NOT EXISTS idx_auth_users_username_lower ON auth_users (LOWER(username));
+CREATE INDEX IF NOT EXISTS idx_auth_users_email_lower ON auth_users (LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_auth_users_document ON auth_users (document_type, document_number);
+CREATE INDEX IF NOT EXISTS idx_auth_users_status ON auth_users (user_status);
+CREATE INDEX IF NOT EXISTS idx_auth_roles_code_lower ON auth_roles (LOWER(role_code));
+CREATE INDEX IF NOT EXISTS idx_auth_roles_status ON auth_roles (role_status);
+CREATE INDEX IF NOT EXISTS idx_auth_user_roles_user_id ON auth_user_roles (user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_user_roles_role_id ON auth_user_roles (role_id);
+CREATE INDEX IF NOT EXISTS idx_auth_user_roles_assignment_status ON auth_user_roles (assignment_status);
+CREATE INDEX IF NOT EXISTS idx_auth_parameters_group ON auth_parameters (parameter_group);
+CREATE INDEX IF NOT EXISTS idx_auth_parameters_group_status_order ON auth_parameters (parameter_group, parameter_status, sort_order);
+CREATE INDEX IF NOT EXISTS idx_auth_parameters_group_code ON auth_parameters (parameter_group, parameter_code);
+CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_affected_user ON auth_audit_logs (affected_user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_executed_by ON auth_audit_logs (executed_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_action_type ON auth_audit_logs (action_type);
+CREATE INDEX IF NOT EXISTS idx_auth_audit_logs_executed_at ON auth_audit_logs (executed_at);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_email ON auth_password_recovery_codes(email);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_user_id ON auth_password_recovery_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_active ON auth_password_recovery_codes(email, used, expires_at, attempts, max_attempts);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_expiration_used ON auth_password_recovery_codes(expires_at, used);
 
 -- ============================================================
--- 4. TRIGGERS
+-- 3. TRIGGERS UPDATED_AT
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION fn_auth_set_updated_at()
@@ -349,134 +143,68 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_auth_users_set_updated_at ON auth_users;
-
 CREATE TRIGGER trg_auth_users_set_updated_at
-    BEFORE UPDATE ON auth_users
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auth_set_updated_at();
+BEFORE UPDATE ON auth_users
+FOR EACH ROW
+EXECUTE FUNCTION fn_auth_set_updated_at();
 
 DROP TRIGGER IF EXISTS trg_auth_roles_set_updated_at ON auth_roles;
-
 CREATE TRIGGER trg_auth_roles_set_updated_at
-    BEFORE UPDATE ON auth_roles
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auth_set_updated_at();
+BEFORE UPDATE ON auth_roles
+FOR EACH ROW
+EXECUTE FUNCTION fn_auth_set_updated_at();
 
 DROP TRIGGER IF EXISTS trg_auth_parameters_set_updated_at ON auth_parameters;
-
 CREATE TRIGGER trg_auth_parameters_set_updated_at
-    BEFORE UPDATE ON auth_parameters
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auth_set_updated_at();
-
-
--- ============================================================
--- 5. PARÁMETROS BASE
--- ============================================================
-
-INSERT INTO auth_parameters (
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_description,
-    sort_order,
-    parameter_status
-)
-VALUES
-    ('USER_STATUS', 'ACTIVE', '1', 'Usuario habilitado para iniciar sesión y operar en el sistema.', 1, 1),
-    ('USER_STATUS', 'INACTIVE', '0', 'Usuario deshabilitado administrativamente. No puede iniciar sesión.', 2, 1),
-    ('USER_STATUS', 'LOCKED', '2', 'Usuario bloqueado por seguridad o administración.', 3, 1)
-ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
-
-INSERT INTO auth_parameters (
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_description,
-    sort_order,
-    parameter_status
-)
-VALUES
-    ('ROLE_STATUS', 'ACTIVE', '1', 'Rol disponible para ser asignado a usuarios.', 1, 1),
-    ('ROLE_STATUS', 'INACTIVE', '0', 'Rol deshabilitado.', 2, 1)
-ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
-
-INSERT INTO auth_parameters (
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_description,
-    sort_order,
-    parameter_status
-)
-VALUES
-    ('ASSIGNMENT_STATUS', 'ACTIVE', '1', 'Asignación de rol vigente para el usuario.', 1, 1),
-    ('ASSIGNMENT_STATUS', 'INACTIVE', '0', 'Asignación de rol deshabilitada.', 2, 1)
-ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
-
-INSERT INTO auth_parameters (
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_description,
-    sort_order,
-    parameter_status
-)
-VALUES
-    ('DOCUMENT_TYPE', 'DNI', 'DNI', 'Documento Nacional de Identidad.', 1, 1),
-    ('DOCUMENT_TYPE', 'CE', 'Carnet de Extranjería', 'Documento de identidad para persona extranjera.', 2, 1),
-    ('DOCUMENT_TYPE', 'RUC', 'RUC', 'Registro Único de Contribuyentes.', 3, 1),
-    ('DOCUMENT_TYPE', 'PASSPORT', 'Pasaporte', 'Documento internacional de identificación.', 4, 1)
-ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
-
-INSERT INTO auth_parameters (
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_description,
-    sort_order,
-    parameter_status
-)
-VALUES
-    ('AUDIT_ACTION_TYPE', 'LOGIN_SUCCESS', 'LOGIN_SUCCESS', 'Inicio de sesión correcto.', 1, 1),
-    ('AUDIT_ACTION_TYPE', 'LOGIN_FAILED', 'LOGIN_FAILED', 'Intento de inicio de sesión fallido.', 2, 1),
-    ('AUDIT_ACTION_TYPE', 'USER_CREATED', 'USER_CREATED', 'Creación de usuario.', 3, 1),
-    ('AUDIT_ACTION_TYPE', 'USER_UPDATED', 'USER_UPDATED', 'Actualización de usuario.', 4, 1),
-    ('AUDIT_ACTION_TYPE', 'USER_DEACTIVATED', 'USER_DEACTIVATED', 'Desactivación lógica de usuario.', 5, 1),
-    ('AUDIT_ACTION_TYPE', 'USER_ACTIVATED', 'USER_ACTIVATED', 'Activación de usuario.', 6, 1),
-    ('AUDIT_ACTION_TYPE', 'USER_LOCKED', 'USER_LOCKED', 'Bloqueo de usuario.', 7, 1),
-    ('AUDIT_ACTION_TYPE', 'PASSWORD_CHANGED', 'PASSWORD_CHANGED', 'Cambio de contraseña.', 8, 1),
-    ('AUDIT_ACTION_TYPE', 'PASSWORD_RECOVERY_REQUESTED', 'PASSWORD_RECOVERY_REQUESTED', 'Solicitud de recuperación de contraseña.', 9, 1),
-    ('AUDIT_ACTION_TYPE', 'PASSWORD_RESET', 'PASSWORD_RESET', 'Restablecimiento de contraseña.', 10, 1),
-    ('AUDIT_ACTION_TYPE', 'ROLE_CREATED', 'ROLE_CREATED', 'Creación de rol.', 11, 1),
-    ('AUDIT_ACTION_TYPE', 'ROLE_ASSIGNED', 'ROLE_ASSIGNED', 'Asignación de rol.', 12, 1),
-    ('AUDIT_ACTION_TYPE', 'ROLE_REMOVED', 'ROLE_REMOVED', 'Retiro de rol.', 13, 1)
-ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
-
+BEFORE UPDATE ON auth_parameters
+FOR EACH ROW
+EXECUTE FUNCTION fn_auth_set_updated_at();
 
 -- ============================================================
--- 6. ROLES BASE
+-- 4. PARÁMETROS BASE
 -- ============================================================
 
-INSERT INTO auth_roles (
-    role_code,
-    role_name,
-    role_description,
-    role_status
-)
+INSERT INTO auth_parameters (parameter_group, parameter_code, parameter_value, parameter_description, sort_order, parameter_status)
 VALUES
-    ('ADMIN', 'Administrador', 'Usuario con acceso administrativo al sistema. Puede gestionar usuarios, roles y auditoría.', 1),
-    ('SUPERVISOR', 'Supervisor', 'Usuario encargado de supervisar operadores y consultar información del sistema.', 1),
-    ('OPERATOR', 'Operador', 'Usuario encargado de registrar operaciones desde la aplicación.', 1)
+('USER_STATUS', 'ACTIVE', '1', 'Usuario habilitado para iniciar sesión.', 1, 1),
+('USER_STATUS', 'INACTIVE', '0', 'Usuario deshabilitado administrativamente.', 2, 1),
+('USER_STATUS', 'LOCKED', '2', 'Usuario bloqueado por seguridad.', 3, 1),
+('ROLE_STATUS', 'ACTIVE', '1', 'Rol disponible para asignación.', 1, 1),
+('ROLE_STATUS', 'INACTIVE', '0', 'Rol deshabilitado.', 2, 1),
+('ASSIGNMENT_STATUS', 'ACTIVE', '1', 'Asignación de rol vigente.', 1, 1),
+('ASSIGNMENT_STATUS', 'INACTIVE', '0', 'Asignación de rol deshabilitada.', 2, 1),
+('DOCUMENT_TYPE', 'DNI', 'DNI', 'Documento Nacional de Identidad.', 1, 1),
+('DOCUMENT_TYPE', 'CE', 'Carnet de Extranjería', 'Documento de identidad para extranjero.', 2, 1),
+('DOCUMENT_TYPE', 'RUC', 'RUC', 'Registro Único de Contribuyentes.', 3, 1),
+('DOCUMENT_TYPE', 'PASSPORT', 'Pasaporte', 'Documento internacional de identificación.', 4, 1),
+('AUDIT_ACTION_TYPE', 'LOGIN_SUCCESS', 'LOGIN_SUCCESS', 'Inicio de sesión correcto.', 1, 1),
+('AUDIT_ACTION_TYPE', 'LOGIN_FAILED', 'LOGIN_FAILED', 'Intento de inicio de sesión fallido.', 2, 1),
+('AUDIT_ACTION_TYPE', 'USER_CREATED', 'USER_CREATED', 'Creación de usuario.', 3, 1),
+('AUDIT_ACTION_TYPE', 'USER_UPDATED', 'USER_UPDATED', 'Actualización de usuario.', 4, 1),
+('AUDIT_ACTION_TYPE', 'USER_DEACTIVATED', 'USER_DEACTIVATED', 'Desactivación lógica de usuario.', 5, 1),
+('AUDIT_ACTION_TYPE', 'USER_ACTIVATED', 'USER_ACTIVATED', 'Activación de usuario.', 6, 1),
+('AUDIT_ACTION_TYPE', 'USER_LOCKED', 'USER_LOCKED', 'Bloqueo de usuario.', 7, 1),
+('AUDIT_ACTION_TYPE', 'PASSWORD_CHANGED', 'PASSWORD_CHANGED', 'Cambio de contraseña.', 8, 1),
+('AUDIT_ACTION_TYPE', 'PASSWORD_RECOVERY_REQUESTED', 'PASSWORD_RECOVERY_REQUESTED', 'Solicitud de recuperación de contraseña.', 9, 1),
+('AUDIT_ACTION_TYPE', 'PASSWORD_RESET', 'PASSWORD_RESET', 'Restablecimiento de contraseña.', 10, 1),
+('AUDIT_ACTION_TYPE', 'ROLE_CREATED', 'ROLE_CREATED', 'Creación de rol.', 11, 1),
+('AUDIT_ACTION_TYPE', 'ROLE_ASSIGNED', 'ROLE_ASSIGNED', 'Asignación de rol.', 12, 1),
+('AUDIT_ACTION_TYPE', 'ROLE_REMOVED', 'ROLE_REMOVED', 'Retiro de rol.', 13, 1)
+ON CONFLICT (parameter_group, parameter_code) DO NOTHING;
+
+-- ============================================================
+-- 5. ROLES BASE
+-- ============================================================
+
+INSERT INTO auth_roles (role_code, role_name, role_description, role_status)
+VALUES
+('ADMIN', 'Administrador', 'Usuario con acceso administrativo al sistema.', 1),
+('SUPERVISOR', 'Supervisor', 'Usuario encargado de supervisar operadores.', 1),
+('OPERATOR', 'Operador', 'Usuario encargado de registrar operaciones.', 1)
 ON CONFLICT (role_code) DO NOTHING;
 
-
 -- ============================================================
--- 7. USUARIO ADMIN INICIAL
--- IMPORTANTE:
--- Este hash viene de tu BD local.
--- Se inserta tal cual porque ya está hasheado con BCrypt.
--- Usuario: admin
+-- 6. USUARIO ADMIN INICIAL
 -- ============================================================
 
 INSERT INTO auth_users (
@@ -491,7 +219,7 @@ INSERT INTO auth_users (
 )
 VALUES (
     'admin',
-    's0ftware_20156@hotmail.com',
+    'adolfo.berrocal@vallegrande.edu.pe',
     '$2a$10$8yWyCVURHUIdww7DRTqhXOrodYehiZI5Vr03UTmxhhWBOHTpP7Vu2',
     'Administrador del Sistema',
     '999999998',
@@ -501,9 +229,8 @@ VALUES (
 )
 ON CONFLICT (username) DO NOTHING;
 
-
 -- ============================================================
--- 8. ASIGNAR ROL ADMIN AL USUARIO admin
+-- 7. ASIGNAR ROL ADMIN
 -- ============================================================
 
 INSERT INTO auth_user_roles (
@@ -523,23 +250,17 @@ INNER JOIN auth_roles r
 WHERE u.username = 'admin'
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
+COMMIT;
 
 -- ============================================================
--- 9. VALIDACIÓN FINAL
+-- 8. VALIDACIÓN FINAL
 -- ============================================================
 
 SELECT
     table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
-  AND table_name IN (
-    'auth_users',
-    'auth_roles',
-    'auth_user_roles',
-    'auth_parameters',
-    'auth_audit_logs',
-    'auth_password_recovery_codes'
-)
+  AND table_name LIKE 'auth_%'
 ORDER BY table_name;
 
 SELECT
@@ -565,11 +286,3 @@ SELECT
     role_status
 FROM auth_roles
 ORDER BY role_id;
-
-SELECT
-    parameter_group,
-    parameter_code,
-    parameter_value,
-    parameter_status
-FROM auth_parameters
-ORDER BY parameter_group, sort_order;

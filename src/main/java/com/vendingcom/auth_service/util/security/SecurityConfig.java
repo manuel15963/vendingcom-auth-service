@@ -7,6 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import java.util.Arrays;
+
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsWebFilter;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
@@ -137,10 +142,30 @@ public class SecurityConfig {
                          * ============================================================
                          * Por defecto requiere autenticación.
                          */
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated()
                 )
 
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
                 .build();
+    }
+
+    @Bean
+    public CorsWebFilter corsWebFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        // Permitir orígenes de desarrollo del frontend (ajusta según entorno)
+        config.setAllowedOrigins(Arrays.asList(
+                "http://localhost:4200",
+                "http://127.0.0.1:4200",
+                "http://localhost:8100",
+                "http://127.0.0.1:8100"
+        ));
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return new CorsWebFilter(source);
     }
 }
