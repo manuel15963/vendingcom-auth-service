@@ -6,9 +6,9 @@ spring:
     name: vendingcom-auth-service
 
   r2dbc:
-    url: ${SPRING_R2DBC_URL:}
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/postgres}
     username: ${SPRING_R2DBC_USERNAME:postgres}
-    password: ${SPRING_R2DBC_PASSWORD:}
+    password: ${SPRING_R2DBC_PASSWORD:123software}
 
   sql:
     init:
@@ -17,8 +17,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:adolfo.berrocal@vallegrande.edu.pe}
+    password: ${MAIL_PASSWORD:gvpa jfui hrjj yqlh}
     properties:
       mail:
         smtp:
