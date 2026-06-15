@@ -14,17 +14,10 @@ spring:
     init:
       mode: ${SPRING_SQL_INIT_MODE}
 
-  mail:
-    host: ${MAIL_HOST}
-    port: ${MAIL_PORT}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: ${MAIL_SMTP_AUTH}
-          starttls:
-            enable: ${MAIL_SMTP_STARTTLS_ENABLE}
+email:
+  from: ${MAIL_FROM}
+  resend:
+    api-key: ${RESEND_API_KEY}
 
 management:
   health:
