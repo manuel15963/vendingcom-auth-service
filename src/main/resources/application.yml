@@ -1,14 +1,14 @@
 server:
-  port: 8081
+  port: ${PORT:8081}
 
 spring:
   application:
     name: vendingcom-auth-service
 
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: 123software
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/postgres}
+    username: ${SPRING_R2DBC_USERNAME:postgres}
+    password: ${SPRING_R2DBC_PASSWORD:123software}
 
   sql:
     init:
@@ -17,8 +17,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: adolfo.berrocal@vallegrande.edu.pe
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:adolfo.berrocal@vallegrande.edu.pe}
+    password: ${MAIL_PASSWORD:gvpa jfui hrjj yqlh}
     properties:
       mail:
         smtp:
@@ -39,14 +39,14 @@ logging:
     com.vendingcom.auth_service: DEBUG
 
 jwt:
-  secret: "VENDINGCOM_AUTH_SERVICE_SECRET_KEY_2026_DEVELOPMENT_ONLY_CHANGE_ME_123456789"
-  expiration-minutes: 60
+  secret: ${JWT_SECRET:VENDINGCOM_AUTH_SERVICE_SECRET_KEY_2026_DEVELOPMENT_ONLY_CHANGE_ME_123456789}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 
 auth:
   password-recovery:
-    code-expiration-minutes: 10
-    max-attempts: 3
-    request-cooldown-minutes: 2
+    code-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES:10}
+    max-attempts: ${PASSWORD_RECOVERY_MAX_ATTEMPTS:3}
+    request-cooldown-minutes: ${PASSWORD_RECOVERY_COOLDOWN_MINUTES:2}
 
 springdoc:
   api-docs:
