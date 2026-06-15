@@ -158,7 +158,9 @@ public class SecurityConfig {
                 "http://localhost:4200",
                 "http://127.0.0.1:4200",
                 "http://localhost:8100",
-                "http://127.0.0.1:8100"
+                "http://127.0.0.1:8100",
+                "http://localhost:8102",
+                "http://127.0.0.1:8102"
         ));
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
