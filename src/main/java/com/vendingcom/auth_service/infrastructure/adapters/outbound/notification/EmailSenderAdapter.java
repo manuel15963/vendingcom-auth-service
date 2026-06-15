@@ -1,52 +1,59 @@
 package com.vendingcom.auth_service.infrastructure.adapters.outbound.notification;
 
 import com.vendingcom.auth_service.application.port.output.notification.EmailSenderPort;
-import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Component
 public class EmailSenderAdapter implements EmailSenderPort {
 
     private static final String PASSWORD_RECOVERY_TEMPLATE = "templates/password-recovery-email.html";
+    private static final String RESEND_EMAILS_ENDPOINT = "/emails";
 
-    private final JavaMailSender javaMailSender;
+    private final WebClient webClient;
+    private final String fromEmail;
 
-    public EmailSenderAdapter(JavaMailSender javaMailSender) {
-        this.javaMailSender = javaMailSender;
+    public EmailSenderAdapter(
+            WebClient.Builder webClientBuilder,
+            @Value("${email.resend.api-key}") String resendApiKey,
+            @Value("${email.from}") String fromEmail
+    ) {
+        this.fromEmail = fromEmail;
+        this.webClient = webClientBuilder
+                .baseUrl("https://api.resend.com")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + resendApiKey)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
     }
 
     @Override
     public Mono<Void> sendPasswordRecoveryCode(String to, String code, Integer expirationMinutes) {
-        return Mono.fromRunnable(() -> sendEmail(to, code, expirationMinutes))
-                .subscribeOn(Schedulers.boundedElastic())
-                .then();
-    }
+        String html = loadTemplate()
+                .replace("{{code}}", code)
+                .replace("{{expirationMinutes}}", String.valueOf(expirationMinutes));
 
-    private void sendEmail(String to, String code, Integer expirationMinutes) {
-        try {
-            MimeMessage message = javaMailSender.createMimeMessage();
+        ResendEmailRequest request = new ResendEmailRequest(
+                fromEmail,
+                List.of(to),
+                "Código de recuperación de contraseña - VendingCom",
+                html
+        );
 
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(to);
-            helper.setSubject("Código de recuperación de contraseña - VendingCom");
-
-            String html = loadTemplate()
-                    .replace("{{code}}", code)
-                    .replace("{{expirationMinutes}}", String.valueOf(expirationMinutes));
-
-            helper.setText(html, true);
-
-            javaMailSender.send(message);
-        } catch (Exception exception) {
-            throw new RuntimeException("Error al enviar correo de recuperación", exception);
-        }
+        return webClient.post()
+                .uri(RESEND_EMAILS_ENDPOINT)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(String.class)
+                .then()
+                .onErrorMap(error -> new RuntimeException("Error al enviar correo de recuperación con Resend", error));
     }
 
     private String loadTemplate() {
@@ -56,5 +63,13 @@ public class EmailSenderAdapter implements EmailSenderPort {
         } catch (Exception exception) {
             throw new RuntimeException("No se pudo cargar la plantilla de correo", exception);
         }
+    }
+
+    private record ResendEmailRequest(
+            String from,
+            List<String> to,
+            String subject,
+            String html
+    ) {
     }
 }
