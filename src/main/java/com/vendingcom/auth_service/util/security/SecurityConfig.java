@@ -7,11 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import java.util.Arrays;
-
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 public class SecurityConfig {
@@ -31,6 +31,7 @@ public class SecurityConfig {
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .cors(cors -> cors.disable())
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 
@@ -57,6 +58,14 @@ public class SecurityConfig {
 
                         /*
                          * ============================================================
+                         * CORS PREFLIGHT
+                         * ============================================================
+                         * Permite que el navegador valide CORS antes de hacer POST/GET.
+                         */
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        /*
+                         * ============================================================
                          * ENDPOINTS PÚBLICOS
                          * ============================================================
                          * No requieren token JWT.
@@ -71,15 +80,12 @@ public class SecurityConfig {
                          * ============================================================
                          * Permite visualizar y probar la documentación de la API.
                          */
-                        // Swagger público
-
                         .pathMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/webjars/**",
                                 "/swagger-resources/**"
-
                         ).permitAll()
 
                         /*
@@ -142,7 +148,6 @@ public class SecurityConfig {
                          * ============================================================
                          * Por defecto requiere autenticación.
                          */
-                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated()
                 )
 
@@ -153,21 +158,75 @@ public class SecurityConfig {
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        // Permitir orígenes de desarrollo del frontend (ajusta según entorno)
+
+        /*
+         * ============================================================
+         * ORÍGENES PERMITIDOS
+         * ============================================================
+         * Local Ionic/Angular + frontend publicado en Render.
+         */
         config.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
                 "http://127.0.0.1:4200",
+
                 "http://localhost:8100",
                 "http://127.0.0.1:8100",
+
+                "http://localhost:8101",
+                "http://127.0.0.1:8101",
+
                 "http://localhost:8102",
-                "http://127.0.0.1:8102"
+                "http://127.0.0.1:8102",
+
+                "https://vendingcom-app.onrender.com"
         ));
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
+
+        /*
+         * ============================================================
+         * MÉTODOS PERMITIDOS
+         * ============================================================
+         */
+        config.setAllowedMethods(Arrays.asList(
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS"
+        ));
+
+        /*
+         * ============================================================
+         * HEADERS PERMITIDOS
+         * ============================================================
+         */
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With"
+        ));
+
+        /*
+         * ============================================================
+         * HEADERS EXPUESTOS AL FRONT
+         * ============================================================
+         */
+        config.setExposedHeaders(Arrays.asList(
+                "Authorization"
+        ));
+
+        /*
+         * Si usas Authorization Bearer, puedes dejarlo en true.
+         * No uses "*" en allowedOrigins cuando allowCredentials es true.
+         */
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return new CorsWebFilter(source);
     }
 }
