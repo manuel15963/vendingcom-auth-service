@@ -2,6 +2,7 @@ package com.vendingcom.auth_service.util.security;
 
 import io.jsonwebtoken.Claims;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,8 +36,26 @@ public class JwtAuthenticationFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+
+        /*
+         * ============================================================
+         * CORS PREFLIGHT
+         * ============================================================
+         * El navegador envía OPTIONS antes de llamar al backend.
+         * Esta petición NO debe validar JWT.
+         */
+        if (request.getMethod() == HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
         String path = request.getPath().value();
 
+        /*
+         * ============================================================
+         * RUTAS PÚBLICAS
+         * ============================================================
+         * Login, recuperación, health y swagger no requieren token.
+         */
         if (isPublicPath(path)) {
             return chain.filter(exchange);
         }
@@ -87,8 +106,6 @@ public class JwtAuthenticationFilter implements WebFilter {
 
                 /*
                  * Swagger / OpenAPI
-                 * Estas rutas deben ser públicas para que cargue la documentación
-                 * sin pedir token antes de abrir la pantalla.
                  */
                 || path.equals("/swagger-ui.html")
                 || path.equals("/swagger-ui/index.html")
@@ -109,7 +126,7 @@ public class JwtAuthenticationFilter implements WebFilter {
 
         for (Object role : roles) {
             if (role != null) {
-                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toString()));
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
             }
         }
 
