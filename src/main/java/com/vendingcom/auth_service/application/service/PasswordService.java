@@ -15,6 +15,9 @@ import com.vendingcom.auth_service.domain.exception.ResourceNotFoundException;
 import com.vendingcom.auth_service.domain.model.AuthAuditLog;
 import com.vendingcom.auth_service.domain.model.AuthPasswordRecoveryCode;
 import com.vendingcom.auth_service.domain.model.AuthUser;
+import com.vendingcom.auth_service.util.audit.AuditDataSerializer;
+import com.vendingcom.auth_service.util.request.RequestContext;
+import com.vendingcom.auth_service.util.request.RequestContextFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -125,7 +128,7 @@ public class PasswordService implements PasswordUseCase {
                                                 code,
                                                 codeExpirationMinutes
                                         ))
-                                        .then(saveAuditLog(
+                                        .then(saveAuditLogSimple(
                                                 "PASSWORD_RECOVERY_REQUESTED",
                                                 user.userId(),
                                                 user.userId(),
@@ -228,12 +231,24 @@ public class PasswordService implements PasswordUseCase {
         );
 
         return authUserRepositoryPort.save(userToUpdate)
-                .flatMap(updatedUser -> saveAuditLog(
+                .flatMap(updatedUser -> saveAuditLogWithData(
                         auditAction,
                         updatedUser.userId(),
                         executedByUserId,
-                        "Contraseña actualizada correctamente para usuario: " + updatedUser.username()
+                        "Contraseña actualizada correctamente para usuario: " + updatedUser.username(),
+                        AuditDataSerializer.serializeUser(user),
+                        AuditDataSerializer.serializeUser(updatedUser)
                 ).thenReturn(updatedUser));
+    }
+
+    private Mono<AuthAuditLog> saveAuditLogSimple(
+            String actionType,
+            Integer affectedUserId,
+            Integer executedByUserId,
+            String actionDescription
+    ) {
+        // Para acciones sin cambio de datos (PASSWORD_RECOVERY_REQUESTED, etc.)
+        return saveAuditLogWithData(actionType, affectedUserId, executedByUserId, actionDescription, null, null);
     }
 
     private Mono<AuthAuditLog> saveAuditLog(
@@ -242,22 +257,46 @@ public class PasswordService implements PasswordUseCase {
             Integer executedByUserId,
             String actionDescription
     ) {
-        AuthAuditLog auditLog = new AuthAuditLog(
-                null,
-                affectedUserId,
-                actionType,
-                "auth_users",
-                affectedUserId,
-                actionDescription,
-                null,
-                null,
-                null,
-                null,
-                executedByUserId,
-                LocalDateTime.now()
-        );
+        return saveAuditLogSimple(actionType, affectedUserId, executedByUserId, actionDescription);
+    }
 
-        return authAuditLogRepositoryPort.save(auditLog);
+    private Mono<AuthAuditLog> saveAuditLogWithData(
+            String actionType,
+            Integer affectedUserId,
+            Integer executedByUserId,
+            String actionDescription,
+            String oldData,
+            String newData
+    ) {
+        return Mono.deferContextual(ctx -> {
+            String clientIp = "UNKNOWN";
+            String userAgent = "UNKNOWN";
+
+            try {
+                RequestContext requestContext = (RequestContext) ctx.get(RequestContextFilter.REQUEST_CONTEXT_KEY);
+                clientIp = requestContext.clientIp();
+                userAgent = requestContext.userAgent();
+            } catch (Exception e) {
+                // Si no existe contexto reactivo, se usa UNKNOWN
+            }
+
+            AuthAuditLog auditLog = new AuthAuditLog(
+                    null,
+                    affectedUserId,
+                    actionType,
+                    "auth_users",
+                    affectedUserId,
+                    actionDescription,
+                    oldData,
+                    newData,
+                    clientIp,
+                    userAgent,
+                    executedByUserId,
+                    LocalDateTime.now()
+            );
+
+            return authAuditLogRepositoryPort.save(auditLog);
+        });
     }
 
     private String generateRecoveryCode() {

@@ -19,6 +19,9 @@ import com.vendingcom.auth_service.domain.model.AuthAuditLog;
 import com.vendingcom.auth_service.domain.model.AuthRole;
 import com.vendingcom.auth_service.domain.model.AuthUser;
 import com.vendingcom.auth_service.domain.model.AuthUserRole;
+import com.vendingcom.auth_service.util.audit.AuditDataSerializer;
+import com.vendingcom.auth_service.util.request.RequestContext;
+import com.vendingcom.auth_service.util.request.RequestContextFilter;
 import com.vendingcom.auth_service.util.security.JwtService;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -129,7 +132,7 @@ public class UserService implements UserUseCase {
 
         return authUserRepositoryPort.findByUsername(username)
                 .switchIfEmpty(Mono.defer(() ->
-                        saveAuditLog(
+                        saveAuditLogSimple(
                                 "LOGIN_FAILED",
                                 null,
                                 null,
@@ -138,7 +141,7 @@ public class UserService implements UserUseCase {
                 ))
                 .flatMap(user -> validateLoginUser(user, request.password())
                         .onErrorResume(exception ->
-                                saveAuditLog(
+                                saveAuditLogSimple(
                                         "LOGIN_FAILED",
                                         user.userId(),
                                         user.userId(),
@@ -153,7 +156,7 @@ public class UserService implements UserUseCase {
                                 .flatMap(roles -> {
                                     String token = jwtService.generateToken(updatedUser, roles);
 
-                                    return saveAuditLog(
+                                    return saveAuditLogSimple(
                                             "LOGIN_SUCCESS",
                                             updatedUser.userId(),
                                             updatedUser.userId(),
@@ -201,11 +204,13 @@ public class UserService implements UserUseCase {
 
         return authUserRepositoryPort.save(userToSave)
                 .flatMap(savedUser -> assignRole(savedUser, role)
-                        .then(saveAuditLog(
+                        .then(saveAuditLogWithData(
                                 "USER_CREATED",
                                 savedUser.userId(),
                                 null,
-                                "Usuario creado correctamente: " + savedUser.username()
+                                "Usuario creado correctamente: " + savedUser.username(),
+                                null,  // oldData = null (nuevo registro)
+                                AuditDataSerializer.serializeUser(savedUser)  // newData = datos creados
                         ))
                         .thenReturn(savedUser));
     }
@@ -234,11 +239,13 @@ public class UserService implements UserUseCase {
         );
 
         return authUserRepositoryPort.save(userToUpdate)
-                .flatMap(updatedUser -> saveAuditLog(
+                .flatMap(updatedUser -> saveAuditLogWithData(
                         "USER_UPDATED",
                         updatedUser.userId(),
                         request.updatedByUserId(),
-                        "Usuario actualizado correctamente: " + updatedUser.username()
+                        "Usuario actualizado correctamente: " + updatedUser.username(),
+                        AuditDataSerializer.serializeUser(existingUser),
+                        AuditDataSerializer.serializeUser(updatedUser)
                 ).thenReturn(updatedUser));
     }
 
@@ -266,11 +273,13 @@ public class UserService implements UserUseCase {
                     );
 
                     return authUserRepositoryPort.save(userToUpdate)
-                            .flatMap(updatedUser -> saveAuditLog(
+                            .flatMap(updatedUser -> saveAuditLogWithData(
                                     resolveAuditActionByStatus(newStatus),
                                     updatedUser.userId(),
                                     null,
-                                    resolveAuditDescriptionByStatus(newStatus, updatedUser.username())
+                                    resolveAuditDescriptionByStatus(newStatus, updatedUser.username()),
+                                    AuditDataSerializer.serializeUser(existingUser),
+                                    AuditDataSerializer.serializeUser(updatedUser)
                             ).thenReturn(updatedUser));
                 });
     }
@@ -433,28 +442,63 @@ public class UserService implements UserUseCase {
                 || LOCKED_STATUS.equals(status);
     }
 
+    private Mono<AuthAuditLog> saveAuditLogSimple(
+            String actionType,
+            Integer affectedUserId,
+            Integer executedByUserId,
+            String actionDescription
+    ) {
+        // Para acciones sin cambio de datos (login, etc.)
+        return saveAuditLogWithData(actionType, affectedUserId, executedByUserId, actionDescription, null, null);
+    }
+
     private Mono<AuthAuditLog> saveAuditLog(
             String actionType,
             Integer affectedUserId,
             Integer executedByUserId,
             String actionDescription
     ) {
-        AuthAuditLog auditLog = new AuthAuditLog(
-                null,
-                affectedUserId,
-                actionType,
-                "auth_users",
-                affectedUserId,
-                actionDescription,
-                null,
-                null,
-                null,
-                null,
-                executedByUserId,
-                LocalDateTime.now()
-        );
+        // Backward compatibility - llama al simple
+        return saveAuditLogSimple(actionType, affectedUserId, executedByUserId, actionDescription);
+    }
 
-        return authAuditLogRepositoryPort.save(auditLog);
+    private Mono<AuthAuditLog> saveAuditLogWithData(
+            String actionType,
+            Integer affectedUserId,
+            Integer executedByUserId,
+            String actionDescription,
+            String oldData,
+            String newData
+    ) {
+        return Mono.deferContextual(ctx -> {
+            String clientIp = "UNKNOWN";
+            String userAgent = "UNKNOWN";
+
+            try {
+                RequestContext requestContext = (RequestContext) ctx.get(RequestContextFilter.REQUEST_CONTEXT_KEY);
+                clientIp = requestContext.clientIp();
+                userAgent = requestContext.userAgent();
+            } catch (Exception e) {
+                // Si no existe contexto reactivo, se usa UNKNOWN
+            }
+
+            AuthAuditLog auditLog = new AuthAuditLog(
+                    null,
+                    affectedUserId,
+                    actionType,
+                    "auth_users",
+                    affectedUserId,
+                    actionDescription,
+                    oldData,
+                    newData,
+                    clientIp,
+                    userAgent,
+                    executedByUserId,
+                    LocalDateTime.now()
+            );
+
+            return authAuditLogRepositoryPort.save(auditLog);
+        });
     }
 
     private String resolveAuditActionByStatus(Integer status) {
