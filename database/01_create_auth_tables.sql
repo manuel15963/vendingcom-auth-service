@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS auth_users (
     document_number VARCHAR(20),
     user_status SMALLINT NOT NULL DEFAULT 1,
     last_login_at TIMESTAMP,
+    -- Bloqueo temporal automático por intentos fallidos de login.
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP,
     created_by_user_id INTEGER,
     updated_by_user_id INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -40,6 +43,10 @@ CREATE TABLE IF NOT EXISTS auth_users (
     FOREIGN KEY (updated_by_user_id)
     REFERENCES auth_users(user_id)
     );
+
+-- Compatibilidad con bases ya creadas: agrega las columnas de bloqueo si faltan.
+ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;
 
 
 CREATE TABLE IF NOT EXISTS auth_roles (

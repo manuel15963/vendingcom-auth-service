@@ -4,6 +4,7 @@ import com.vendingcom.auth_service.application.dto.request.CreateUserRequest;
 import com.vendingcom.auth_service.application.dto.request.LoginRequest;
 import com.vendingcom.auth_service.application.dto.request.UpdateUserRequest;
 import com.vendingcom.auth_service.application.dto.response.AuthRoleResponse;
+import com.vendingcom.auth_service.application.dto.response.AuthenticatedUserResponse;
 import com.vendingcom.auth_service.application.dto.response.LoginResponse;
 import com.vendingcom.auth_service.application.port.input.UserUseCase;
 import com.vendingcom.auth_service.application.port.output.persistence.AuthAuditLogRepositoryPort;
@@ -22,6 +23,7 @@ import com.vendingcom.auth_service.domain.model.AuthUserRole;
 import com.vendingcom.auth_service.util.audit.AuditDataSerializer;
 import com.vendingcom.auth_service.util.request.RequestContext;
 import com.vendingcom.auth_service.util.request.RequestContextFilter;
+import com.vendingcom.auth_service.util.security.JwtAuthenticationFilter;
 import com.vendingcom.auth_service.util.security.JwtService;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -29,6 +31,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService implements UserUseCase {
@@ -36,6 +39,10 @@ public class UserService implements UserUseCase {
     private static final Integer INACTIVE_STATUS = 0;
     private static final Integer ACTIVE_STATUS = 1;
     private static final Integer LOCKED_STATUS = 2;
+
+    // Bloqueo temporal automático por intentos fallidos de login.
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOCK_DURATION_MINUTES = 15;
 
     private final AuthUserRepositoryPort authUserRepositoryPort;
     private final AuthRoleRepositoryPort authRoleRepositoryPort;
@@ -69,7 +76,8 @@ public class UserService implements UserUseCase {
         return validateUsernameDoesNotExist(username)
                 .then(validateEmailDoesNotExist(email))
                 .then(findActiveRole(roleCode))
-                .flatMap(role -> createUserWithRole(request, username, email, role));
+                .flatMap(role -> currentActorId()
+                        .flatMap(actorId -> createUserWithRole(request, username, email, role, actorId.orElse(null))));
     }
 
     @Override
@@ -82,7 +90,8 @@ public class UserService implements UserUseCase {
                 .flatMap(existingUser ->
                         validateUsernameForUpdate(userId, username)
                                 .then(validateEmailForUpdate(userId, email))
-                                .then(updateExistingUser(existingUser, request, username, email))
+                                .then(currentActorId())
+                                .flatMap(actorId -> updateExistingUser(existingUser, request, username, email, actorId.orElse(null)))
                 );
     }
 
@@ -96,6 +105,29 @@ public class UserService implements UserUseCase {
     public Mono<AuthUser> findByUsername(String username) {
         return authUserRepositoryPort.findByUsername(normalizeUsername(username))
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró el usuario con username: " + username)));
+    }
+
+    @Override
+    public Mono<AuthenticatedUserResponse> getAuthenticatedUser(String username) {
+        return authUserRepositoryPort.findByUsername(normalizeUsername(username))
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró el usuario: " + username)))
+                .flatMap(user -> {
+                    // Si el usuario fue bloqueado o inactivado, su token deja de servir.
+                    if (!ACTIVE_STATUS.equals(user.userStatus())) {
+                        return Mono.error(new BusinessRuleException(
+                                "USER_NOT_ACTIVE",
+                                "La cuenta no está activa."
+                        ));
+                    }
+                    return getActiveRolesByUser(user.userId())
+                            .map(roles -> new AuthenticatedUserResponse(
+                                    user.userId(),
+                                    user.username(),
+                                    user.email(),
+                                    user.fullName(),
+                                    roles.stream().map(AuthRoleResponse::roleCode).toList()
+                            ));
+                });
     }
 
     @Override
@@ -139,18 +171,9 @@ public class UserService implements UserUseCase {
                                 "Intento de inicio de sesión fallido. Usuario no encontrado: " + username
                         ).then(Mono.error(new InvalidCredentialsException("Usuario o contraseña incorrectos.")))
                 ))
-                .flatMap(user -> validateLoginUser(user, request.password())
-                        .onErrorResume(exception ->
-                                saveAuditLogSimple(
-                                        "LOGIN_FAILED",
-                                        user.userId(),
-                                        user.userId(),
-                                        "Intento de inicio de sesión fallido para usuario: "
-                                                + user.username()
-                                                + ". Motivo: "
-                                                + exception.getMessage()
-                                ).then(Mono.error(exception))
-                        )
+                .flatMap(user -> ensureNotTemporarilyLocked(user)
+                        .then(validateLoginUser(user, request.password()))
+                        .onErrorResume(exception -> handleLoginFailure(user, exception))
                         .then(updateLastLogin(user))
                         .flatMap(updatedUser -> getActiveRolesByUser(updatedUser.userId())
                                 .flatMap(roles -> {
@@ -183,7 +206,8 @@ public class UserService implements UserUseCase {
             CreateUserRequest request,
             String username,
             String email,
-            AuthRole role
+            AuthRole role,
+            Integer actorUserId
     ) {
         AuthUser userToSave = new AuthUser(
                 null,
@@ -196,7 +220,9 @@ public class UserService implements UserUseCase {
                 normalizeNullable(request.documentNumber()),
                 ACTIVE_STATUS,
                 null,
+                0,
                 null,
+                actorUserId,
                 null,
                 null,
                 null
@@ -207,7 +233,7 @@ public class UserService implements UserUseCase {
                         .then(saveAuditLogWithData(
                                 "USER_CREATED",
                                 savedUser.userId(),
-                                null,
+                                actorUserId,
                                 "Usuario creado correctamente: " + savedUser.username(),
                                 null,  // oldData = null (nuevo registro)
                                 AuditDataSerializer.serializeUser(savedUser)  // newData = datos creados
@@ -219,7 +245,8 @@ public class UserService implements UserUseCase {
             AuthUser existingUser,
             UpdateUserRequest request,
             String username,
-            String email
+            String email,
+            Integer actorUserId
     ) {
         AuthUser userToUpdate = new AuthUser(
                 existingUser.userId(),
@@ -232,8 +259,10 @@ public class UserService implements UserUseCase {
                 normalizeNullable(request.documentNumber()),
                 existingUser.userStatus(),
                 existingUser.lastLoginAt(),
+                existingUser.failedLoginAttempts(),
+                existingUser.lockedUntil(),
                 existingUser.createdByUserId(),
-                request.updatedByUserId(),
+                actorUserId,
                 existingUser.createdAt(),
                 LocalDateTime.now()
         );
@@ -242,7 +271,7 @@ public class UserService implements UserUseCase {
                 .flatMap(updatedUser -> saveAuditLogWithData(
                         "USER_UPDATED",
                         updatedUser.userId(),
-                        request.updatedByUserId(),
+                        actorUserId,
                         "Usuario actualizado correctamente: " + updatedUser.username(),
                         AuditDataSerializer.serializeUser(existingUser),
                         AuditDataSerializer.serializeUser(updatedUser)
@@ -266,6 +295,8 @@ public class UserService implements UserUseCase {
                             existingUser.documentNumber(),
                             newStatus,
                             existingUser.lastLoginAt(),
+                            existingUser.failedLoginAttempts(),
+                            existingUser.lockedUntil(),
                             existingUser.createdByUserId(),
                             existingUser.updatedByUserId(),
                             existingUser.createdAt(),
@@ -309,6 +340,8 @@ public class UserService implements UserUseCase {
                 user.documentNumber(),
                 user.userStatus(),
                 LocalDateTime.now(),
+                0,      // reset de intentos fallidos
+                null,   // quita cualquier bloqueo temporal
                 user.createdByUserId(),
                 user.updatedByUserId(),
                 user.createdAt(),
@@ -395,6 +428,61 @@ public class UserService implements UserUseCase {
         return Mono.empty();
     }
 
+    private Mono<Void> ensureNotTemporarilyLocked(AuthUser user) {
+        if (user.isTemporarilyLocked(LocalDateTime.now())) {
+            return Mono.error(new BusinessRuleException(
+                    "USER_TEMPORARILY_LOCKED",
+                    "Cuenta bloqueada temporalmente por intentos fallidos. Intente nuevamente más tarde."
+            ));
+        }
+        return Mono.empty();
+    }
+
+    private Mono<Void> handleLoginFailure(AuthUser user, Throwable exception) {
+        // Solo cuenta como intento fallido si la contraseña fue incorrecta,
+        // no si la cuenta está inactiva/bloqueada o ya estaba en lock temporal.
+        Mono<Void> attemptUpdate = (exception instanceof InvalidCredentialsException)
+                ? registerFailedAttempt(user)
+                : Mono.empty();
+
+        return attemptUpdate
+                .then(saveAuditLogSimple(
+                        "LOGIN_FAILED",
+                        user.userId(),
+                        user.userId(),
+                        "Intento de inicio de sesión fallido para usuario: "
+                                + user.username()
+                                + ". Motivo: "
+                                + exception.getMessage()
+                ))
+                .then(Mono.error(exception));
+    }
+
+    private Mono<Void> registerFailedAttempt(AuthUser user) {
+        LocalDateTime now = LocalDateTime.now();
+
+        // Si el bloqueo anterior ya expiró, el contador arranca de cero (intentos frescos).
+        boolean previousLockExpired = user.lockedUntil() != null && !user.lockedUntil().isAfter(now);
+        int previousAttempts = (user.failedLoginAttempts() == null || previousLockExpired)
+                ? 0
+                : user.failedLoginAttempts();
+        int attempts = previousAttempts + 1;
+
+        LocalDateTime lockedUntil = attempts >= MAX_LOGIN_ATTEMPTS
+                ? now.plusMinutes(LOCK_DURATION_MINUTES)
+                : null;
+
+        return authUserRepositoryPort.updateFailedLoginState(user.userId(), attempts, lockedUntil);
+    }
+
+    private Mono<Optional<Integer>> currentActorId() {
+        return Mono.deferContextual(ctx -> Mono.just(
+                ctx.hasKey(JwtAuthenticationFilter.AUTH_USER_ID_KEY)
+                        ? Optional.ofNullable((Integer) ctx.get(JwtAuthenticationFilter.AUTH_USER_ID_KEY))
+                        : Optional.<Integer>empty()
+        ));
+    }
+
     private Mono<List<AuthRoleResponse>> getActiveRolesByUser(Integer userId) {
         return authUserRoleRepositoryPort.findByUserId(userId)
                 .filter(AuthUserRole::isActive)
@@ -472,6 +560,12 @@ public class UserService implements UserUseCase {
                 // Si no existe contexto reactivo, se usa UNKNOWN
             }
 
+            // El "quién ejecutó" se toma del JWT autenticado si no se pasó explícitamente.
+            Integer resolvedExecutedBy = executedByUserId;
+            if (resolvedExecutedBy == null && ctx.hasKey(JwtAuthenticationFilter.AUTH_USER_ID_KEY)) {
+                resolvedExecutedBy = (Integer) ctx.get(JwtAuthenticationFilter.AUTH_USER_ID_KEY);
+            }
+
             AuthAuditLog auditLog = new AuthAuditLog(
                     null,
                     affectedUserId,
@@ -483,7 +577,7 @@ public class UserService implements UserUseCase {
                     newData,
                     clientIp,
                     userAgent,
-                    executedByUserId,
+                    resolvedExecutedBy,
                     LocalDateTime.now()
             );
 

@@ -19,6 +19,7 @@ import com.vendingcom.auth_service.domain.model.AuthUser;
 import com.vendingcom.auth_service.util.audit.AuditDataSerializer;
 import com.vendingcom.auth_service.util.request.RequestContext;
 import com.vendingcom.auth_service.util.request.RequestContextFilter;
+import com.vendingcom.auth_service.util.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -234,6 +235,8 @@ public class PasswordService implements PasswordUseCase {
                 user.documentNumber(),
                 user.userStatus(),
                 user.lastLoginAt(),
+                user.failedLoginAttempts(),
+                user.lockedUntil(),
                 user.createdByUserId(),
                 executedByUserId,
                 user.createdAt(),
@@ -281,6 +284,12 @@ public class PasswordService implements PasswordUseCase {
                 // Si no existe contexto reactivo, se usa UNKNOWN
             }
 
+            // El "quién ejecutó" se toma del JWT autenticado si no se pasó explícitamente.
+            Integer resolvedExecutedBy = executedByUserId;
+            if (resolvedExecutedBy == null && ctx.hasKey(JwtAuthenticationFilter.AUTH_USER_ID_KEY)) {
+                resolvedExecutedBy = (Integer) ctx.get(JwtAuthenticationFilter.AUTH_USER_ID_KEY);
+            }
+
             AuthAuditLog auditLog = new AuthAuditLog(
                     null,
                     affectedUserId,
@@ -292,7 +301,7 @@ public class PasswordService implements PasswordUseCase {
                     newData,
                     clientIp,
                     userAgent,
-                    executedByUserId,
+                    resolvedExecutedBy,
                     LocalDateTime.now()
             );
 

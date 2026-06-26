@@ -13,8 +13,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Autenticación", description = "Endpoints para login y consulta del usuario autenticado")
@@ -44,7 +42,8 @@ public class AuthController {
 
     @Operation(
             summary = "Obtener usuario autenticado",
-            description = "Retorna la información del usuario autenticado usando el token JWT enviado en el header Authorization.",
+            description = "Retorna la información FRESCA (leída de BD) del usuario autenticado. "
+                    + "Si la cuenta fue bloqueada o inactivada, el acceso se rechaza aunque el token siga vigente.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @GetMapping("/me")
@@ -52,19 +51,8 @@ public class AuthController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader
     ) {
         String token = authorizationHeader.substring(BEARER_PREFIX.length());
-
-        Integer userId = jwtService.extractClaims(token).get("userId", Integer.class);
         String username = jwtService.extractUsername(token);
-        String email = jwtService.extractClaims(token).get("email", String.class);
-        String fullName = jwtService.extractClaims(token).get("fullName", String.class);
-        List<String> roles = jwtService.extractRoles(token);
 
-        return Mono.just(new AuthenticatedUserResponse(
-                userId,
-                username,
-                email,
-                fullName,
-                roles
-        ));
+        return userUseCase.getAuthenticatedUser(username);
     }
 }
