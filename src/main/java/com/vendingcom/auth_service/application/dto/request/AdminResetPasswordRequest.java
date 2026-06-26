@@ -1,20 +1,15 @@
 package com.vendingcom.auth_service.application.dto.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-public record PasswordRecoveryConfirmRequest(
-
-        @NotBlank(message = "El email es obligatorio")
-        @Email(message = "El email no tiene un formato válido")
-        @Size(max = 120, message = "El email no debe superar 120 caracteres")
-        String email,
-
-        @NotBlank(message = "El código es obligatorio")
-        @Pattern(regexp = "^[0-9]{6}$", message = "El código debe tener 6 dígitos")
-        String code,
+/**
+ * Petición usada por un ADMIN para restablecer la contraseña de otro usuario.
+ * A diferencia de {@link ChangePasswordRequest}, NO requiere la contraseña actual,
+ * porque el administrador no la conoce.
+ */
+public record AdminResetPasswordRequest(
 
         @NotBlank(message = "La nueva contraseña es obligatoria")
         @Size(min = 8, max = 100, message = "La nueva contraseña debe tener entre 8 y 100 caracteres")

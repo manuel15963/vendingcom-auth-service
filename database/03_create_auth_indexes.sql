@@ -24,6 +24,13 @@ CREATE INDEX IF NOT EXISTS idx_auth_users_email_lower
 CREATE INDEX IF NOT EXISTS idx_auth_users_document
     ON auth_users (document_type, document_number);
 
+-- Evita registrar dos usuarios con el mismo documento.
+-- Índice parcial: solo aplica cuando ambos campos están presentes
+-- (permite varios usuarios sin documento cargado todavía).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_users_document
+    ON auth_users (document_type, document_number)
+    WHERE document_type IS NOT NULL AND document_number IS NOT NULL;
+
 -- Filtro por estado del usuario.
 -- Útil para listar usuarios activos, inactivos o bloqueados.
 CREATE INDEX IF NOT EXISTS idx_auth_users_status

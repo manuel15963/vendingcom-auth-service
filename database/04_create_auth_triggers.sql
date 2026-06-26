@@ -105,7 +105,7 @@ VALUES (
            'Valor inicial',
            'Parámetro temporal para probar trigger updated_at.',
            1,
-           'ACTIVE'
+           1  -- parameter_status es SMALLINT: 1 = ACTIVO (antes decía 'ACTIVE' y rompía el script)
        );
 
 -- ============================================================
