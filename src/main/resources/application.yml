@@ -44,6 +44,9 @@ auth:
     code-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES}
     max-attempts: ${PASSWORD_RECOVERY_MAX_ATTEMPTS}
     request-cooldown-minutes: ${PASSWORD_RECOVERY_COOLDOWN_MINUTES}
+  audit-log:
+    # Días de retención de la auditoría; un job semanal borra lo más antiguo.
+    retention-days: ${AUDIT_LOG_RETENTION_DAYS:7}
 
 springdoc:
   api-docs:

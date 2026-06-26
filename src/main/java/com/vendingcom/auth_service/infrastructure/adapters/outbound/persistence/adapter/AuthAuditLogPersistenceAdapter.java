@@ -144,4 +144,9 @@ public class AuthAuditLogPersistenceAdapter implements AuthAuditLogRepositoryPor
         return reactiveAuthAuditLogRepository.findAll()
                 .map(authAuditLogPersistenceMapper::toDomain);
     }
+
+    @Override
+    public Mono<Void> deleteOlderThan(LocalDateTime threshold) {
+        return reactiveAuthAuditLogRepository.deleteOlderThan(threshold);
+    }
 }
