@@ -1,5 +1,6 @@
 package com.vendingcom.auth_service.application.service;
 
+import com.vendingcom.auth_service.application.dto.request.AdminResetPasswordRequest;
 import com.vendingcom.auth_service.application.dto.request.ChangePasswordRequest;
 import com.vendingcom.auth_service.application.dto.request.PasswordRecoveryConfirmRequest;
 import com.vendingcom.auth_service.application.dto.request.PasswordRecoveryRequest;
@@ -74,11 +75,15 @@ public class PasswordService implements PasswordUseCase {
     }
 
     @Override
-    public Mono<Void> changePasswordByAdmin(Integer userId, ChangePasswordRequest request) {
-        return authUserRepositoryPort.findById(userId)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró el usuario con id: " + userId)))
-                .flatMap(user -> validateChangePassword(user, request)
-                        .then(updatePassword(user, request.newPassword(), user.userId(), "PASSWORD_CHANGED"))
+    public Mono<Void> resetPasswordByAdmin(Integer targetUserId, String adminUsername, AdminResetPasswordRequest request) {
+        return authUserRepositoryPort.findByUsername(normalizeUsername(adminUsername))
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró el administrador: " + adminUsername)))
+                .flatMap(admin -> authUserRepositoryPort.findById(targetUserId)
+                        .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró el usuario con id: " + targetUserId)))
+                        // El admin no conoce la contraseña actual del usuario, por eso no se valida.
+                        .flatMap(targetUser -> validateNewPasswordIsDifferent(request.newPassword(), targetUser)
+                                .then(updatePassword(targetUser, request.newPassword(), admin.userId(), "PASSWORD_RESET"))
+                        )
                 )
                 .then();
     }
@@ -121,13 +126,15 @@ public class PasswordService implements PasswordUseCase {
                                         maxAttempts
                                 );
 
-                                return recoveryCodeRepositoryPort.markActiveCodesAsUsedByEmail(email)
-                                        .then(recoveryCodeRepositoryPort.save(recoveryCode))
-                                        .flatMap(savedCode -> emailSenderPort.sendPasswordRecoveryCode(
+                                return emailSenderPort.sendPasswordRecoveryCode(
                                                 email,
                                                 code,
                                                 codeExpirationMinutes
-                                        ))
+                                        )
+                                        // Solo persistimos el código si el correo se envió correctamente.
+                                        // Así evitamos códigos "fantasma" y que un fallo de envío dispare el cooldown.
+                                        .then(recoveryCodeRepositoryPort.markActiveCodesAsUsedByEmail(email))
+                                        .then(recoveryCodeRepositoryPort.save(recoveryCode))
                                         .then(saveAuditLogSimple(
                                                 "PASSWORD_RECOVERY_REQUESTED",
                                                 user.userId(),
@@ -144,13 +151,12 @@ public class PasswordService implements PasswordUseCase {
     public Mono<Void> confirmPasswordRecovery(PasswordRecoveryConfirmRequest request) {
         String email = normalizeEmail(request.email());
 
+        // Error unificado: no revelamos si el correo existe o si hay un código activo,
+        // para evitar enumeración de usuarios.
         return authUserRepositoryPort.findByEmail(email)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("No se encontró un usuario con el correo indicado.")))
+                .switchIfEmpty(Mono.error(invalidRecoveryCodeError()))
                 .flatMap(user -> recoveryCodeRepositoryPort.findLastActiveCodeByEmail(email)
-                        .switchIfEmpty(Mono.error(new BusinessRuleException(
-                                "RECOVERY_CODE_NOT_FOUND",
-                                "No existe un código activo para este correo."
-                        )))
+                        .switchIfEmpty(Mono.error(invalidRecoveryCodeError()))
                         .flatMap(recoveryCode -> validateRecoveryCode(request, recoveryCode)
                                 .then(validateNewPasswordIsDifferent(request.newPassword(), user))
                                 .then(updatePassword(user, request.newPassword(), user.userId(), "PASSWORD_RESET"))
@@ -165,13 +171,17 @@ public class PasswordService implements PasswordUseCase {
     ) {
         if (!passwordEncoderPort.matches(request.code(), recoveryCode.codeHash())) {
             return recoveryCodeRepositoryPort.incrementAttempts(recoveryCode.recoveryCodeId())
-                    .then(Mono.error(new BusinessRuleException(
-                            "INVALID_RECOVERY_CODE",
-                            "El código de recuperación es incorrecto."
-                    )));
+                    .then(Mono.error(invalidRecoveryCodeError()));
         }
 
         return Mono.empty();
+    }
+
+    private BusinessRuleException invalidRecoveryCodeError() {
+        return new BusinessRuleException(
+                "INVALID_RECOVERY_CODE",
+                "El código de recuperación es inválido o ha expirado."
+        );
     }
 
     private Mono<Void> validateNewPasswordIsDifferent(String newPassword, AuthUser user) {
@@ -249,15 +259,6 @@ public class PasswordService implements PasswordUseCase {
     ) {
         // Para acciones sin cambio de datos (PASSWORD_RECOVERY_REQUESTED, etc.)
         return saveAuditLogWithData(actionType, affectedUserId, executedByUserId, actionDescription, null, null);
-    }
-
-    private Mono<AuthAuditLog> saveAuditLog(
-            String actionType,
-            Integer affectedUserId,
-            Integer executedByUserId,
-            String actionDescription
-    ) {
-        return saveAuditLogSimple(actionType, affectedUserId, executedByUserId, actionDescription);
     }
 
     private Mono<AuthAuditLog> saveAuditLogWithData(

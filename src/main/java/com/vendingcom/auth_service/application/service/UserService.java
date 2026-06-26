@@ -452,16 +452,6 @@ public class UserService implements UserUseCase {
         return saveAuditLogWithData(actionType, affectedUserId, executedByUserId, actionDescription, null, null);
     }
 
-    private Mono<AuthAuditLog> saveAuditLog(
-            String actionType,
-            Integer affectedUserId,
-            Integer executedByUserId,
-            String actionDescription
-    ) {
-        // Backward compatibility - llama al simple
-        return saveAuditLogSimple(actionType, affectedUserId, executedByUserId, actionDescription);
-    }
-
     private Mono<AuthAuditLog> saveAuditLogWithData(
             String actionType,
             Integer affectedUserId,

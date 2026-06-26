@@ -107,6 +107,14 @@ public class SecurityConfig {
 
                         /*
                          * ============================================================
+                         * RESET DE CONTRASEÑA POR ADMIN
+                         * ============================================================
+                         * Solo ADMIN puede restablecer la contraseña de otro usuario.
+                         */
+                        .pathMatchers(HttpMethod.PATCH, "/api/v1/auth/password/users/**").hasRole("ADMIN")
+
+                        /*
+                         * ============================================================
                          * AUDITORÍA
                          * ============================================================
                          * Solo ADMIN puede consultar eventos auditados.

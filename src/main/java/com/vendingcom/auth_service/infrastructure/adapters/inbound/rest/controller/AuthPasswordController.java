@@ -1,5 +1,6 @@
 package com.vendingcom.auth_service.infrastructure.adapters.inbound.rest.controller;
 
+import com.vendingcom.auth_service.application.dto.request.AdminResetPasswordRequest;
 import com.vendingcom.auth_service.application.dto.request.ChangePasswordRequest;
 import com.vendingcom.auth_service.application.dto.request.PasswordRecoveryConfirmRequest;
 import com.vendingcom.auth_service.application.dto.request.PasswordRecoveryRequest;
@@ -45,6 +46,29 @@ public class AuthPasswordController {
                 .thenReturn(MessageResponse.of(
                         "PASSWORD_CHANGED",
                         "Contraseña actualizada correctamente."
+                ));
+    }
+
+    @Operation(
+            summary = "Restablecer la contraseña de un usuario (ADMIN)",
+            description = """
+                    Permite que un administrador restablezca la contraseña de otro usuario.
+                    No requiere la contraseña actual del usuario. Queda auditado con el admin que la ejecutó.
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @PatchMapping("/users/{userId}")
+    public Mono<MessageResponse> resetPasswordByAdmin(
+            @PathVariable Integer userId,
+            @Valid @RequestBody AdminResetPasswordRequest request
+    ) {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(securityContext -> securityContext.getAuthentication())
+                .map(Authentication::getName)
+                .flatMap(adminUsername -> passwordUseCase.resetPasswordByAdmin(userId, adminUsername, request))
+                .thenReturn(MessageResponse.of(
+                        "PASSWORD_RESET",
+                        "Contraseña restablecida correctamente."
                 ));
     }
 
