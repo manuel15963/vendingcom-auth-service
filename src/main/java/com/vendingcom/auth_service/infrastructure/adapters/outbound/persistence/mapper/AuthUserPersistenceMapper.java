@@ -23,6 +23,8 @@ public class AuthUserPersistenceMapper {
                 entity.getDocumentNumber(),
                 entity.getUserStatus(),
                 entity.getLastLoginAt(),
+                entity.getFailedLoginAttempts(),
+                entity.getLockedUntil(),
                 entity.getCreatedByUserId(),
                 entity.getUpdatedByUserId(),
                 entity.getCreatedAt(),
@@ -46,6 +48,8 @@ public class AuthUserPersistenceMapper {
                 .documentNumber(domain.documentNumber())
                 .userStatus(domain.userStatus())
                 .lastLoginAt(domain.lastLoginAt())
+                .failedLoginAttempts(domain.failedLoginAttempts())
+                .lockedUntil(domain.lockedUntil())
                 .createdByUserId(domain.createdByUserId())
                 .updatedByUserId(domain.updatedByUserId())
                 .createdAt(domain.createdAt())

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
+
 @Component
 public class AuthUserPersistenceAdapter implements AuthUserRepositoryPort {
 
@@ -26,6 +28,11 @@ public class AuthUserPersistenceAdapter implements AuthUserRepositoryPort {
     public Mono<AuthUser> save(AuthUser authUser) {
         return reactiveAuthUserRepository.save(authUserPersistenceMapper.toEntity(authUser))
                 .map(authUserPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Mono<Void> updateFailedLoginState(Integer userId, Integer attempts, LocalDateTime lockedUntil) {
+        return reactiveAuthUserRepository.updateFailedLoginState(userId, attempts, lockedUntil);
     }
 
     @Override

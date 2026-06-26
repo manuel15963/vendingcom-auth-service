@@ -22,6 +22,9 @@ public class JwtAuthenticationFilter implements WebFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
+    /** Clave de contexto reactivo con el ID del usuario autenticado (para auditoría). */
+    public static final String AUTH_USER_ID_KEY = "authUserId";
+
     private final JwtService jwtService;
     private final SecurityErrorWriter securityErrorWriter;
 
@@ -84,6 +87,7 @@ public class JwtAuthenticationFilter implements WebFilter {
 
         Claims claims = jwtService.extractClaims(token);
         String username = claims.getSubject();
+        Integer authenticatedUserId = claims.get("userId", Integer.class);
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
@@ -93,6 +97,9 @@ public class JwtAuthenticationFilter implements WebFilter {
                 );
 
         return chain.filter(exchange)
+                .contextWrite(context -> authenticatedUserId != null
+                        ? context.put(AUTH_USER_ID_KEY, authenticatedUserId)
+                        : context)
                 .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
     }
 
@@ -102,7 +109,6 @@ public class JwtAuthenticationFilter implements WebFilter {
                 || path.equals("/api/v1/auth/password/recovery/confirm")
 
                 || path.equals("/actuator/health")
-                || path.startsWith("/debug/")
 
                 /*
                  * Swagger / OpenAPI

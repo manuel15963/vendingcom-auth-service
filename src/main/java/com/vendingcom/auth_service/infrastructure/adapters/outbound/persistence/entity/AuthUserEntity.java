@@ -50,6 +50,12 @@ public class AuthUserEntity {
     @Column("last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @Column("failed_login_attempts")
+    private Integer failedLoginAttempts;
+
+    @Column("locked_until")
+    private LocalDateTime lockedUntil;
+
     @Column("created_by_user_id")
     private Integer createdByUserId;
 

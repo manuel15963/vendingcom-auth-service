@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
 
     // Reglas de negocio que NO son un conflicto (409): se mapean a su código HTTP semántico.
     private static final Set<String> FORBIDDEN_CODES = Set.of(
-            "USER_INACTIVE", "USER_LOCKED", "USER_INVALID_STATUS", "USER_NOT_ACTIVE"
+            "USER_INACTIVE", "USER_LOCKED", "USER_INVALID_STATUS", "USER_NOT_ACTIVE", "USER_TEMPORARILY_LOCKED"
     );
     private static final String RATE_LIMIT_CODE = "PASSWORD_RECOVERY_RATE_LIMIT";
 

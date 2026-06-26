@@ -1,5 +1,6 @@
 package com.vendingcom.auth_service.util.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,19 +13,23 @@ import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityErrorWriter securityErrorWriter;
+    private final List<String> allowedOrigins;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            SecurityErrorWriter securityErrorWriter
+            SecurityErrorWriter securityErrorWriter,
+            @Value("${cors.allowed-origins}") List<String> allowedOrigins
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.securityErrorWriter = securityErrorWriter;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
@@ -94,7 +99,6 @@ public class SecurityConfig {
                          * ============================================================
                          */
                         .pathMatchers("/actuator/health").permitAll()
-                        .pathMatchers("/debug/**").permitAll()
 
                         /*
                          * ============================================================
@@ -171,23 +175,10 @@ public class SecurityConfig {
          * ============================================================
          * ORÍGENES PERMITIDOS
          * ============================================================
-         * Local Ionic/Angular + frontend publicado en Render.
+         * Se configuran por variable de entorno (cors.allowed-origins),
+         * separados por coma. Ej: http://localhost:8100,https://vendingcom-app.onrender.com
          */
-        config.setAllowedOrigins(Arrays.asList(
-                "http://localhost:4200",
-                "http://127.0.0.1:4200",
-
-                "http://localhost:8100",
-                "http://127.0.0.1:8100",
-
-                "http://localhost:8101",
-                "http://127.0.0.1:8101",
-
-                "http://localhost:8102",
-                "http://127.0.0.1:8102",
-
-                "https://vendingcom-app.onrender.com"
-        ));
+        config.setAllowedOrigins(allowedOrigins);
 
         /*
          * ============================================================

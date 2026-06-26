@@ -13,11 +13,17 @@ public record AuthUser(
         String documentNumber,
         Integer userStatus,
         LocalDateTime lastLoginAt,
+        Integer failedLoginAttempts,
+        LocalDateTime lockedUntil,
         Integer createdByUserId,
         Integer updatedByUserId,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
+
+    public boolean isTemporarilyLocked(LocalDateTime now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
 
     public boolean isActive() {
         return Integer.valueOf(1).equals(userStatus);

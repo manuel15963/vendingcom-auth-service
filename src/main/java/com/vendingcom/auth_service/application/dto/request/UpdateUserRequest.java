@@ -2,7 +2,6 @@ package com.vendingcom.auth_service.application.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -30,7 +29,8 @@ public record UpdateUserRequest(
         @Pattern(regexp = "^$|^[0-9]{8}$", message = "El DNI debe tener 8 dígitos")
         String documentNumber,
 
-        @NotNull(message = "El usuario que actualiza es obligatorio")
+        // Obsoleto: el actor real se toma del JWT autenticado. Se mantiene por compatibilidad
+        // con el cliente actual, pero el backend lo ignora por seguridad/auditoría.
         Integer updatedByUserId
 ) {
 }
